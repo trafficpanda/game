@@ -5,6 +5,7 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "")
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://trafficpanda.net")
 DB_PATH = os.getenv("DB_PATH", "trafficpanda.db")
 
 API_HOST = os.getenv("API_HOST", "0.0.0.0")

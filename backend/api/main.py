@@ -21,6 +21,7 @@ from app.achievements import get_user_achievements_full, ensure_user_achievement
 from app.skills import get_skills_for_level
 from app.storyline import get_unlocked_chapters
 from app.stars import list_products
+from pydantic import BaseModel
 
 
 app = FastAPI(title="Traffic Panda API")
@@ -307,7 +308,61 @@ async def get_story(user_id: int) -> Dict[str, Any]:
     }
 
 
+# ===== Stars mock-buy (симуляция покупки через Stars) =====
+
+class StarsMockBuyRequest(BaseModel):
+    user_id: int
+    product_id: str
+
+
+@app.post("/stars/mock-buy")
+async def stars_mock_buy(req: StarsMockBuyRequest):
+    user = await get_user(req.user_id)
+
+    # Примитивная симуляция покупки продукта
+    if req.product_id == "coins_small":
+        user.coins += 50_000
+        msg = "Начислено 50 000 монет 🪙"
+    elif req.product_id == "coins_medium":
+        user.coins += 120_000
+        msg = "Начислено 120 000 монет 🪙"
+    elif req.product_id == "coins_big":
+        user.coins += 400_000
+        msg = "Начислено 400 000 монет 🪙"
+    elif req.product_id == "xp_boost":
+        user.xp += 500
+        msg = "Выдан XP бустер (+500 XP) ✨"
+    elif req.product_id == "coins_boost":
+        user.coins += 200_000
+        msg = "Выдан Coin бустер (+200 000 монет) 💰"
+    elif req.product_id == "mythic_panda":
+        from app.db import add_panda_purchase
+        await add_panda_purchase(user.user_id, "mythic")
+        msg = "Открыта Мифическая Панда ⭐"
+    elif req.product_id == "season_pass":
+        msg = "Season Pass активирован! 🎫"
+    else:
+        raise HTTPException(status_code=400, detail="Неизвестный продукт")
+
+    user.level = level_from_xp(user.xp)
+    user.rank_name = rank_name_from_level(user.level)
+    await update_user(user)
+    await ensure_user_achievements_up_to_date(user.user_id)
+
+    profile = await get_profile(user.user_id)
+
+    return {
+        "status": "ok",
+        "message": msg,
+        "profile": profile,
+    }
+
+
 # ===== Stars (donation products) =====
+class StarsMockBuyRequest(BaseModel):
+    user_id: int
+    product_id: str
+
 
 @app.get("/stars/products")
 async def get_star_products() -> Dict[str, Any]:
@@ -330,3 +385,52 @@ async def get_star_products() -> Dict[str, Any]:
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/stars/mock-buy")
+async def stars_mock_buy(req: StarsMockBuyRequest) -> Dict[str, Any]:
+    """
+    Мок-покупка Stars: никакой реальной оплаты, просто выдаём бонусы.
+    Потом этот endpoint можно заменить реальной интеграцией с Telegram Stars.
+    """
+    user = await get_user(req.user_id)
+
+    # Примитивная логика бонусов
+    if req.product_id == "coins_small":
+        user.coins += 50_000
+        msg = "Начислено 50 000 монет 🪙"
+    elif req.product_id == "coins_medium":
+        user.coins += 120_000
+        msg = "Начислено 120 000 монет 🪙"
+    elif req.product_id == "coins_big":
+        user.coins += 400_000
+        msg = "Начислено 400 000 монет 🪙"
+    elif req.product_id == "xp_boost":
+        user.xp += 500
+        msg = "Выдан XP бустер (симуляция) +500 XP ✨"
+    elif req.product_id == "coins_boost":
+        user.coins += 200_000
+        msg = "Выдан Coin бустер (симуляция) +200 000 монет 💰"
+    elif req.product_id == "mythic_panda":
+        # можно привязать к отдельной “мифической” панде
+        from app.db import add_panda_purchase  # импорт внутри, чтобы не зациклить
+        await add_panda_purchase(user.user_id, "mythic")
+        msg = "Открыта Мифическая Панда ⭐"
+    elif req.product_id == "season_pass":
+        msg = "Season Pass (симуляция) активирован!"
+    else:
+        raise HTTPException(status_code=400, detail="Неизвестный продукт")
+
+    # Обновляем уровень/ранг и сохраняем пользователя
+    user.level = level_from_xp(user.xp)
+    user.rank_name = rank_name_from_level(user.level)
+    await update_user(user)
+    await ensure_user_achievements_up_to_date(user.user_id)
+
+    profile = await get_profile(user.user_id)
+
+    return {
+        "status": "ok",
+        "message": msg,
+        "profile": profile,
+    }

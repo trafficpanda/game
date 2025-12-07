@@ -4,9 +4,10 @@ import axios from "axios";
 
 // ===================== CONFIG ===========================
 
+// В проде API живёт на том же домене, что и фронт (через nginx).
+// Локально можно задать VITE_API_BASE_URL=http://127.0.0.1:8000
 const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-
+  import.meta.env.VITE_API_BASE_URL || window.location.origin;
 
 // ===================== TYPES =============================
 
@@ -156,7 +157,9 @@ const App: React.FC = () => {
   useEffect(() => {
     const id = getTelegramUserId();
     if (!id) {
-      setToast("Не удалось получить user_id — MiniApp должен запускаться из Telegram.");
+      setToast(
+        "Не удалось получить user_id — MiniApp должен запускаться из Telegram."
+      );
       setLoading(false);
       return;
     }
@@ -264,6 +267,26 @@ const App: React.FC = () => {
   }
 
   // ============================================================
+  // Stars mock buy (без реальных денег)
+  // ============================================================
+
+  async function startMockStarsBuy(productId: string) {
+    if (!userId) return;
+    try {
+      const res = await axios.post(`${API_BASE}/stars/mock-buy`, {
+        user_id: userId,
+        product_id: productId,
+      });
+      setProfile(res.data.profile);
+      setToast(res.data.message || "Покупка успешно обработана (mock)");
+    } catch (e: any) {
+      setToast(
+        e.response?.data?.detail || "Ошибка mock-покупки через Stars (backend)"
+      );
+    }
+  }
+
+  // ============================================================
   // UI COMPONENTS
   // ============================================================
 
@@ -337,14 +360,14 @@ const App: React.FC = () => {
         <SectionTitle>Магазин панд</SectionTitle>
         {shop.items.map((p) => (
           <div key={p.id} style={card}>
-            <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <img
                 src={p.image_url}
                 style={{
-                    width: "100%",
-                    height: "auto",
-                    borderRadius: 10,
-                    display: "block",
+                  width: "40%",
+                  height: "auto",
+                  borderRadius: 10,
+                  display: "block",
                 }}
               />
               <div>
@@ -505,10 +528,11 @@ const App: React.FC = () => {
           Приглашено друзей: <b>{friends.referrals_count}</b>
           <br />
           <br />
-          Твоя ссылka:
+          Твоя ссылка:
           <br />
           <div style={{ wordBreak: "break-all", marginTop: 6 }}>
-            {friends.referral_link || "Ссылка появится, когда ты настроишь BOT_USERNAME"}
+            {friends.referral_link ||
+              "Ссылка появится, когда ты настроишь BOT_USERNAME"}
           </div>
         </div>
       </>
@@ -527,10 +551,19 @@ const App: React.FC = () => {
             <span style={{ opacity: 0.8 }}>{p.name_en}</span>
             <br />
             <small>Тип: {p.type}</small>
+            <br />
+            <button
+              style={buttonStyle}
+              onClick={() => startMockStarsBuy(p.id)}
+            >
+              Симулировать покупку
+            </button>
           </div>
         ))}
         <div style={card}>
-          ❗ Покупка Stars через Telegram WebApp включается после подключения invoice.
+          ❗ Сейчас это mock-покупки без реальных Stars. Когда будешь готов,
+          сюда легко привяжем реальный Telegram Stars invoice через
+          WebApp.openInvoice.
         </div>
       </>
     );
